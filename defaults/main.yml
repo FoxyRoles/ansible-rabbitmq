@@ -1,0 +1,6 @@
+---
+
+rabbitmq_local_passdb: "{{ local_passdb | default('~/.ansible_rabbitmq_passwords') }}"
+rabbitmq_pass_len: 24
+rabbitmq_pass_complexity: "ascii_letters,digits,punctuation" # ascii_letters,digits,hexdigits,punctuation
+rabbitmq_root_password: "{{ lookup('password', [rabbitmq_local_passdb, '/', inventory_hostname, '/', 'rabbitmq.root', ' chars={{ rabbitmq_pass_complexity }} length={{ rabbitmq_pass_len }}']|join) }}"

@@ -1,0 +1,57 @@
+---
+
+- name: ensure apt-transport-https present
+  apt:
+    pkg: apt-transport-https
+    state: present
+
+- name: Erlang apt key present
+  apt_key:
+    url: https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/gpg.E495BB49CC4BBE5B.key
+    state: present
+
+- name: Erlang repository present
+  apt_repository:
+    repo: deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/deb/ubuntu {{ ansible_distribution_release }} main
+    filename: erlang
+    state: present
+    update_cache: true
+
+- name: RabbitMQ apt key present
+  apt_key:
+    url: https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key
+    state: present
+
+- name: RabbitMQ repository present
+  apt_repository:
+    repo: deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/deb/ubuntu {{ ansible_distribution_release }} main
+    filename: rabbitmq
+    state: present
+    update_cache: true
+
+- name: RabbitMQ is present
+  apt: name=rabbitmq-server state=present
+
+- name: RabbitMQ is running
+  service: name=rabbitmq-server state=started enabled=yes
+
+- name: RabbitMQ management plugin is installed
+  rabbitmq_plugin: name=rabbitmq_management state=enabled
+  notify:
+    - restart rabbitmq
+
+- name: RabbitMQ root user present
+  rabbitmq_user:
+    user: root
+    password: "{{ rabbitmq_root_password }}"
+    tags: administrator
+    vhost: /
+    configure_priv: .*
+    read_priv: .*
+    write_priv: .*
+    state: present
+
+- name: RabbitMQ guest user absent
+  rabbitmq_user:
+    user: guest
+    state: absent
