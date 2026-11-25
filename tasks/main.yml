@@ -1,33 +1,51 @@
 ---
 
-- name: ensure apt-transport-https present
-  apt:
-    pkg: apt-transport-https
-    state: present
+- name: Remove legacy Erlang and RabbitMQ repository files
+  ansible.builtin.file:
+    path: "/etc/apt/sources.list.d/{{ item }}.list"
+    state: absent
+  loop:
+    - erlang
+    - rabbitmq
+  register: rabbitmq_legacy_repositories
 
-- name: Erlang apt key present
-  apt_key:
-    url: https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/gpg.E495BB49CC4BBE5B.key
+- name: Install RabbitMQ repository dependencies
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - python3-debian
     state: present
+    cache_valid_time: 3600
 
-- name: Erlang repository present
-  apt_repository:
-    repo: deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-erlang/deb/ubuntu {{ ansible_distribution_release }} main
-    filename: erlang
+- name: Download the Team RabbitMQ APT signing key
+  ansible.builtin.get_url:
+    url: https://keys.openpgp.org/vks/v1/by-fingerprint/0A9AF2115F4687BD29803A206B73A36E6026DFCA
+    dest: /usr/share/keyrings/rabbitmq-team.asc
+    mode: '0644'
+  register: rabbitmq_repository_key
+
+- name: Configure the Erlang and RabbitMQ APT repositories
+  ansible.builtin.deb822_repository:
+    name: "{{ item }}"
+    uris:
+      - "https://deb1.rabbitmq.com/{{ item }}/ubuntu/{{ rabbitmq_apt_suite }}"
+      - "https://deb2.rabbitmq.com/{{ item }}/ubuntu/{{ rabbitmq_apt_suite }}"
+    suites: "{{ rabbitmq_apt_suite }}"
+    components: main
+    signed_by: /usr/share/keyrings/rabbitmq-team.asc
     state: present
+  loop:
+    - rabbitmq-erlang
+    - rabbitmq-server
+  vars:
+    # Team RabbitMQ uses the Ubuntu 24.04 repository for Ubuntu 26.04.
+    rabbitmq_apt_suite: "{{ 'noble' if ansible_facts['distribution_release'] == 'resolute' else ansible_facts['distribution_release'] }}"
+  register: rabbitmq_repositories
+
+- name: Refresh the APT cache after RabbitMQ repository changes
+  ansible.builtin.apt:
     update_cache: true
-
-- name: RabbitMQ apt key present
-  apt_key:
-    url: https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/gpg.9F4587F226208342.key
-    state: present
-
-- name: RabbitMQ repository present
-  apt_repository:
-    repo: deb https://dl.cloudsmith.io/public/rabbitmq/rabbitmq-server/deb/ubuntu {{ ansible_distribution_release }} main
-    filename: rabbitmq
-    state: present
-    update_cache: true
+  when: rabbitmq_legacy_repositories is changed or rabbitmq_repository_key is changed or rabbitmq_repositories is changed
 
 - name: RabbitMQ is present
   apt: name=rabbitmq-server state=present
