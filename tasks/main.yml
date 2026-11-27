@@ -48,18 +48,25 @@
   when: rabbitmq_legacy_repositories is changed or rabbitmq_repository_key is changed or rabbitmq_repositories is changed
 
 - name: RabbitMQ is present
-  apt: name=rabbitmq-server state=present
+  ansible.builtin.apt:
+    name: rabbitmq-server
+    state: present
 
 - name: RabbitMQ is running
-  service: name=rabbitmq-server state=started enabled=yes
+  ansible.builtin.service:
+    name: rabbitmq-server
+    state: started
+    enabled: true
 
 - name: RabbitMQ management plugin is installed
-  rabbitmq_plugin: name=rabbitmq_management state=enabled
+  community.rabbitmq.rabbitmq_plugin:
+    name: rabbitmq_management
+    state: enabled
   notify:
     - restart rabbitmq
 
 - name: RabbitMQ root user present
-  rabbitmq_user:
+  community.rabbitmq.rabbitmq_user:
     user: root
     password: "{{ rabbitmq_root_password }}"
     tags: administrator
@@ -70,6 +77,6 @@
     state: present
 
 - name: RabbitMQ guest user absent
-  rabbitmq_user:
+  community.rabbitmq.rabbitmq_user:
     user: guest
     state: absent
